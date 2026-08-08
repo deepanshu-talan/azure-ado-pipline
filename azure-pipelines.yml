@@ -3,7 +3,7 @@ trigger:
   include:
     - main
 
-pool: infrapipeline
+pool: infra-agents
 
 stages:
   - stage:

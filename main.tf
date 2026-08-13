@@ -21,7 +21,7 @@ resource "azurerm_storage_account" "stg" {
 
 resource "azurerm_storage_container" "cntr" {
   name                  = var.container_name
-  storage_account_id    = azurerm_storage_account.cntr.id
+  storage_account_id    = azurerm_storage_account.stg.id
   container_access_type = "private"
 }
 

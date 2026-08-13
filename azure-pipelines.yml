@@ -115,7 +115,7 @@ stages:
   jobs:
   - deployment: Apply
     displayName: Deploy Infrastructure
-    environment: terraform-production
+    environment: terraform-dev
 
     strategy:
       runOnce:

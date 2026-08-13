@@ -1,36 +1,146 @@
 trigger:
- branches:
-  include:
-    - main
+  branches:
+    include:
+      - main
 
 pool: infra-agents
 
+variables:
+  terraformDirectory: '$(System.DefaultWorkingDirectory)'
+  terraformVersion: 'latest'
+  azureServiceConnection: 'infrapipeline'
+  tfStateStorageAccount: 'deepstorageac'
+  tfStateContainer: 'infrapipeline-container'
+  tfStateKey: 'terraform.tfstate'
+
 stages:
-  - stage:
-    jobs:
-      - job: 
-        steps:
+
+- stage: TerraformTest
+  displayName: Terraform Test & Security
+  jobs:
+  
+  - job: Validation
+    displayName: Validate Terraform
+    steps:
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+
+    - bash: |
+        terraform version
+      displayName: Terraform Version
+      
+    - bash: |
+        terraform fmt -check -recursive
+      displayName: Terraform Format Check
+      workingDirectory: '$(terraformDirectory)'
+
+    - bash: |
+        terraform init -backend=false
+      displayName: Terraform Init
+      workingDirectory: '$(terraformDirectory)'
+
+    - bash: |
+        terraform validate
+      displayName: Terraform Validate
+      workingDirectory: '$(terraformDirectory)'
+
+    - bash: |
+        curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+        tflint --version
+      displayName: Install TFLint
+
+    - bash: |
+        tflint --init
+        tflint
+      displayName: TFLint
+      workingDirectory: '$(terraformDirectory)'
+
+    - bash: |
+        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        tfsec --version
+      displayName: Install tfsec
+
+    - bash: |
+        tfsec .
+      displayName: tfsec Security Scan
+      workingDirectory: '$(terraformDirectory)'
+
+
+- stage: TerraformPlan
+  displayName: Terraform Plan
+
+  dependsOn: TerraformTest
+
+  condition: succeeded()
+
+  jobs:
+  - job: Plan
+    displayName: Generate Terraform Plan
+
+    steps:
+
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: '$(terraformVersion)'
+
+    - task: TerraformTask@5
+      displayName: Terraform Init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+
+        backendServiceArm: '$(azureServiceConnection)'
+        backendAzureRmStorageAccountName: '$(tfStateStorageAccount)'
+        backendAzureRmContainerName: '$(tfStateContainer)'
+        backendAzureRmKey: '$(tfStateKey)'
+        
+    - task: TerraformTask@5
+      displayName: Terraform Plan
+      inputs:
+        provider: 'azurerm'
+        command: 'plan'
+        environmentServiceNameAzureRM: '$(azureServiceConnection)'
+
+
+- stage: TerraformApply
+  displayName: Terraform Apply
+
+  dependsOn: TerraformPlan
+
+  condition: succeeded()
+
+  jobs:
+  - deployment: Apply
+    displayName: Deploy Infrastructure
+    environment: terraform-production
+
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+
           - task: TerraformInstaller@1
+            displayName: Install Terraform
             inputs:
-              terraformVersion: 'latest'
-              
+              terraformVersion: '$(terraformVersion)'
+
           - task: TerraformTask@5
+            displayName: Terraform Init
             inputs:
               provider: 'azurerm'
               command: 'init'
-              backendServiceArm: 'infrapipeline'
-              backendAzureRmStorageAccountName: 'deepstorageac'
-              backendAzureRmContainerName: 'infrapipeline-container'
-              backendAzureRmKey: 'terraform.tfstate'
-            
+
+              backendServiceArm: '$(azureServiceConnection)'
+              backendAzureRmStorageAccountName: '$(tfStateStorageAccount)'
+              backendAzureRmContainerName: '$(tfStateContainer)'
+              backendAzureRmKey: '$(tfStateKey)'
+
           - task: TerraformTask@5
-            inputs:
-              provider: 'azurerm'
-              command: 'plan'
-              environmentServiceNameAzureRM: 'infrapipeline'
-          - task: TerraformTask@5
+            displayName: Terraform Apply
             inputs:
               provider: 'azurerm'
               command: 'apply'
-              environmentServiceNameAzureRM: 'infrapipeline'
-
+              environmentServiceNameAzureRM: '$(azureServiceConnection)'

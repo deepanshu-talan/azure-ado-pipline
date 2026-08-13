@@ -11,7 +11,7 @@ variable "resource_group_name" {
 }
 
 variable "storage_account_name" {
-  default     = "storageacdeepinfrapipeline68dshc938fd"
+  default     = "storageac1deep1nfrap1pe"
   type        = string
   description = "Globally unique name of the Azure Storage Account."
 }

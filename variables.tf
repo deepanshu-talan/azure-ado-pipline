@@ -29,7 +29,7 @@ variable "log_analytics_workspace_name" {
 }
 
 variable "tags" {
-  type        = map(string)
+  type = map(string)
   default = {
     project     = "infrapipeline"
     environment = "dev"

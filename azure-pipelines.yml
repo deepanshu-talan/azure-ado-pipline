@@ -18,7 +18,7 @@ stages:
 - stage: TerraformTest
   displayName: Terraform Test & Security
   jobs:
-  
+
   - job: Validation
     displayName: Validate Terraform
     steps:
@@ -144,3 +144,4 @@ stages:
               provider: 'azurerm'
               command: 'apply'
               environmentServiceNameAzureRM: '$(azureServiceConnection)'
+              
